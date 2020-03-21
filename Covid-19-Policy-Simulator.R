@@ -1,17 +1,20 @@
 ## Simulation of management of Covid-19 outbreak in the UK.
-library(nleqslv)
+library(nleqslv) # nonlinear solver
 
 # Parameters (unit: days)
 incubation_time <- 5.1
 start_trans_symp <- incubation_time - 0.5
 start_trans_asymp <- start_trans_symp
-prop_symptoms <- 0.5 
+prop_symptoms <- 0.2 # https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
+prop_critical <- 0.06 # To be implemented # https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
 mean_generation_time <- 6.5
 generation_time_alpha <- 0.25 # shape parameter of an assumed gamma distribution
 R0 <- 2.4
 inf_symp_asymp_ratio <- 2
 UK_population_size <- 66.44e6
 pop_size <- UK_population_size
+case_fatality_rate <- 0.01 # to be implemented...
+
 
 # Stages:
 stages <- c(
@@ -159,7 +162,7 @@ for(run in 1:n_runs){
   plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
   lines(state[,"R"]/pop_size,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
-  lines(dfac,col=plotcol,type="l")
+  lines(1-dfac,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
   lines(rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
 }
