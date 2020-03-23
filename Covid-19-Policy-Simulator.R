@@ -29,13 +29,17 @@ critical_care_beds <- 8175 # uk number of respirators
 ## Threshold for proportion infected:
 critical_care_beds / (hospital_load_factor * pop_size) 
 
-## Check:
-r <- (R0^(1/generation_time_alpha)-1) * generation_time_alpha/mean_generation_time;
-# linear growth rate
-r
-# doubling time
-#exp(r*T_double)==2 -> T_double == log(2)/r
-log(2)/r
+# ## Check:
+# r <- (R0^(1/generation_time_alpha)-1) * generation_time_alpha/mean_generation_time;
+# # linear growth rate
+# r
+# # doubling time
+# #exp(r*T_double)==2 -> T_double == log(2)/r
+# log(2)/r
+
+policy_intervention_rate <- 1/6 # https://lab.gedidigital.it/gedi-visual/2020/coronavirus-i-contagi-in-italia/
+
+
 
 
 # Stages:
@@ -220,12 +224,11 @@ other_runs_transparency <- 0.05
 plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
 for(run in 1:n_runs){
   for(i in 1:n_steps){
-    dfac[i+1] <- pnorm(qnorm(dfac[i])+rnorm(1,0*1/60,1/30)) # decline of compliance
-    #if(i %% 7 == 0){# Every week, adjust policy:
-    if(runif(1)< 1/7){# Approximately every week, adjust policy:
-      if(state[i,"Is2"]/pop_size > 0.001 && growth_rate > 0){ # more measures
+    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(30*6),1/30)))) # decline of compliance
+    if(runif(1)< policy_intervention_rate){# Approximately every week, adjust policy:
+      if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
-      }else if(state[i,"Is2"]/pop_size < 0.01 && growth_rate <  0){ # less measures
+      }else if(state[i,"Is2"]/pop_size < 0.001 && growth_rate <  0){ # less measures
         current_R <- R0_and_Tgen(SS,FF0 * state[i,"S"] * dfac[i])[1]
         if(is.na(current_R) || current_R < 1)
           dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,1.5)) # outcome uncertain
@@ -237,7 +240,7 @@ for(run in 1:n_runs){
     deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
     growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
   }
-  line_alpha <- ifelse(run > n_runs-3,1,other_runs_transparency)*255
+  line_alpha <- ifelse(run > n_runs-1,1,other_runs_transparency)*255
   plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
   lines((state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
