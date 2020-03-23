@@ -175,7 +175,7 @@ linear_growth_rate <- # linear growth rate r should be around 0.2
 linear_growth_rate
 
 # Non-linear dynamics
-n_steps <- 365 * 3
+n_steps <- 365 * 1.5
 state <- matrix(0, nrow=n_steps+1, ncol=n_stages)
 colnames(state) <- stages
 S_index <- which(stages == "S")
@@ -216,12 +216,15 @@ legend(x="bottomright",
 dfac <- rep(NA,n_steps+1) # social distancing factor, the controll parameter
 dfac[1] <- 1 # social distancing factor, the controll parameter
 growth_rate <- linear_growth_rate
-n_runs <- 200
-other_runs_transparency <- 0.05
+n_runs <- 2000
+# plotting <- TRUE
+other_runs_transparency <- 10/n_runs
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion immunized",xlab="Days")
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Social Distancing Factor",xlab="Days")
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion infected",xlab="Days")
 plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
+final_mortality <- rep(NA,n_runs)
+final_immunization <- rep(NA,n_runs)
 for(run in 1:n_runs){
   policy_intervention_times <- c()
   for(i in 1:n_steps){
@@ -231,14 +234,12 @@ for(run in 1:n_runs){
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
         policy_intervention_times <-
           append(policy_intervention_times,i)
-      }else if(state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0){ # less measures
+      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0){ # less measures
         current_R <- R0_and_Tgen(SS,FF0 * state[i,"S"] * dfac[i])[1]
         if(is.na(current_R) || current_R < 1){
-          if(dfac[i+1] < 1){ 
-            dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
-            policy_intervention_times <-
-              append(policy_intervention_times,i)
-          }
+          dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+          policy_intervention_times <-
+            append(policy_intervention_times,i)
         }
       }
     }
@@ -248,20 +249,25 @@ for(run in 1:n_runs){
     deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
     growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
   }
-  line_alpha <- ifelse(run > n_runs-1,1,other_runs_transparency)*255
-  plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
-  lines((state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
-  plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
-  lines(1-dfac,col=plotcol,type="l")
-  plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
-  lines(rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
-  plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
-  lines(cumsum(deaths)/pop_size * 1e1,col=plotcol,type="l")
+  if(plotting || run == n_runs){
+    line_alpha <- ifelse(run > n_runs-1,1,other_runs_transparency)*255
+    plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
+    lines((state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
+    plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
+    lines(1-dfac,col=plotcol,type="l")
+    plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
+    lines(100*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
+    plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
+    lines(cumsum(deaths)/pop_size * 1e1,col=plotcol,type="l")
+  }
+  final_mortality[run] <- sum(deaths)/pop_size
+  final_immunization[run] <- 
+    (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
 }
 for(t in policy_intervention_times){
   lines(c(t,t),c(0,1), col="black", lty=3)
 }
-legend(x="topleft",
-       legend = c("Recovered","Distancing","Infected","cum. mort. x 10"),
-       col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
-
+legend(x="topright",
+       legend = c("Recovered","Distancing","Infected x 100","cum. mort. x 10"),
+       col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.9))
+plot(final_immunization,final_mortality,pch="+",cex=0.3)
