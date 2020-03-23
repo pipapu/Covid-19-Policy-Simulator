@@ -175,7 +175,7 @@ linear_growth_rate <- # linear growth rate r should be around 0.2
 linear_growth_rate
 
 # Non-linear dynamics
-n_steps <- 365
+n_steps <- 365 * 3
 state <- matrix(0, nrow=n_steps+1, ncol=n_stages)
 colnames(state) <- stages
 S_index <- which(stages == "S")
@@ -223,15 +223,23 @@ other_runs_transparency <- 0.05
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion infected",xlab="Days")
 plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
 for(run in 1:n_runs){
+  policy_intervention_times <- c()
   for(i in 1:n_steps){
     dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(30*6),1/30)))) # decline of compliance
     if(runif(1)< policy_intervention_rate){# adjust policy:
       if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
-      }else if(state[i,"Is2"]/pop_size < 0.001 && growth_rate <  0){ # less measures
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
+      }else if(state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0){ # less measures
         current_R <- R0_and_Tgen(SS,FF0 * state[i,"S"] * dfac[i])[1]
-        if(is.na(current_R) || current_R < 1)
-          dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,1.5)) # outcome uncertain
+        if(is.na(current_R) || current_R < 1){
+          if(dfac[i+1] < 1){ 
+            dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+            policy_intervention_times <-
+              append(policy_intervention_times,i)
+          }
+        }
       }
     }
     Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
@@ -249,6 +257,9 @@ for(run in 1:n_runs){
   lines(rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
   lines(cumsum(deaths)/pop_size * 1e1,col=plotcol,type="l")
+}
+for(t in policy_intervention_times){
+  lines(c(t,t),c(0,1), col="black", lty=3)
 }
 legend(x="topleft",
        legend = c("Recovered","Distancing","Infected","cum. mort. x 10"),
