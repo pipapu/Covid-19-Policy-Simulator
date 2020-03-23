@@ -26,6 +26,8 @@ hospital_load_factor <-
   critical_care_rate * critical_care_hospital_time / 
   mean_generation_time
 critical_care_beds <- 8175 # uk number of respirators 
+## Threshold for proportion infected:
+critical_care_beds / (hospital_load_factor * pop_size) 
 
 ## Check:
 r <- (R0^(1/generation_time_alpha)-1) * generation_time_alpha/mean_generation_time;
@@ -199,7 +201,7 @@ for(i in 1:n_steps){
   state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
   deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
 }
-lines(state[,"R"]/pop_size,col="black",type="l")
+lines((state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
 lines(rowSums(state[,IStages])/pop_size,col="red",type="l")
 lines(cumsum(deaths)/pop_size*1e1,col="brown",type="l")
 legend(x="bottomright",
@@ -237,7 +239,7 @@ for(run in 1:n_runs){
   }
   line_alpha <- ifelse(run > n_runs-3,1,other_runs_transparency)*255
   plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
-  lines(state[,"R"]/pop_size,col=plotcol,type="l")
+  lines((state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
   lines(1-dfac,col=plotcol,type="l")
   plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
