@@ -225,7 +225,7 @@ plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
 for(run in 1:n_runs){
   for(i in 1:n_steps){
     dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(30*6),1/30)))) # decline of compliance
-    if(runif(1)< policy_intervention_rate){# Approximately every week, adjust policy:
+    if(runif(1)< policy_intervention_rate){# adjust policy:
       if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
       }else if(state[i,"Is2"]/pop_size < 0.001 && growth_rate <  0){ # less measures
