@@ -216,8 +216,8 @@ legend(x="bottomright",
 dfac <- rep(NA,n_steps+1) # social distancing factor, the controll parameter
 dfac[1] <- 1 # social distancing factor, the controll parameter
 growth_rate <- linear_growth_rate
-n_runs <- 2000
-plotting <- TRUE
+n_runs <- 200
+if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
 other_runs_transparency <- 10/n_runs
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion immunized",xlab="Days")
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Social Distancing Factor",xlab="Days")
@@ -235,12 +235,9 @@ for(run in 1:n_runs){
         policy_intervention_times <-
           append(policy_intervention_times,i)
       }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0){ # less measures
-        current_R <- R0_and_Tgen(SS,FF0 * state[i,"S"] * dfac[i])[1]
-        if(is.na(current_R) || current_R < 1){
-          dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
-          policy_intervention_times <-
-            append(policy_intervention_times,i)
-        }
+        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
       }
     }
     Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
@@ -270,4 +267,5 @@ for(t in policy_intervention_times){
 legend(x="topright",
        legend = c("Recovered","Distancing","Infected x 100","cum. mort. x 10"),
        col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.9))
-plot(final_immunization,final_mortality,pch="+",cex=0.3)
+#plot(final_immunization,final_mortality,pch="+",cex=0.3)
+hist(final_mortality)
