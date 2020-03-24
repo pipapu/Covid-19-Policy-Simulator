@@ -217,7 +217,7 @@ dfac <- rep(NA,n_steps+1) # social distancing factor, the controll parameter
 dfac[1] <- 1 # social distancing factor, the controll parameter
 growth_rate <- linear_growth_rate
 n_runs <- 2000
-# plotting <- TRUE
+plotting <- TRUE
 other_runs_transparency <- 10/n_runs
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion immunized",xlab="Days")
 # plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Social Distancing Factor",xlab="Days")
