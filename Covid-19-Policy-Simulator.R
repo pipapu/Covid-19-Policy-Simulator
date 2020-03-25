@@ -306,7 +306,64 @@ legend(x="topright",
        legend = c("Recovered","Distancing","Infected x 100","cum. mort. x 10"),
        col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.8))
 #plot(final_immunization,final_mortality,pch="+",cex=0.3)
+
+if(F){
+  # some other, optional analyses
 hist(final_mortality)
+compliance_decline_levels <- seq(-1/30*2,1/30*2,length.out = n_runs)
+for(run in 1:n_runs){
+  compliance_decline <- compliance_decline_levels[run]
+  for(i in 1:n_steps){
+    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-compliance_decline,1/30)))) # decline of compliance
+    if(runif(1)< policy_intervention_rate){# adjust policy:
+      if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
+        dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
+      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0.1){ # less measures
+        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
+      }
+    }
+    Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
+    state[i+1,] <- Lx %*% state[i,]
+    state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
+    deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
+    growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
+  }
+  final_mortality[run] <- sum(deaths)/pop_size
+  final_immunization[run] <- 
+    (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
+}
+plot(compliance_decline_levels*30,final_mortality,cex=200/n_runs,xlab="Decline of compliance (Month)^-1")
 
-plot(dates-min(dates),cumsum(deaths),col=plotcol,type="l",xlim=c(0,50),ylim=c(0,200))
+thresholdFactor_levels <- 10^(seq(-3,3,length.out = n_runs))
+for(run in 1:n_runs){
+  thresholdFactor <- thresholdFactor_levels[run]
+  for(i in 1:n_steps){
+    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(2*30),1/30)))) # decline of compliance
+    if(runif(1)< policy_intervention_rate){# adjust policy:
+      if(state[i,"Is2"]/pop_size > 0.0005*thresholdFactor && growth_rate > 0){ # more measures
+        dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
+      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001*thresholdFactor && growth_rate <  0.1){ # less measures
+        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+        policy_intervention_times <-
+          append(policy_intervention_times,i)
+      }
+    }
+    Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
+    state[i+1,] <- Lx %*% state[i,]
+    state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
+    deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
+    growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
+  }
+  final_mortality[run] <- sum(deaths)/pop_size
+  final_immunization[run] <- 
+    (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
+}
+plot(thresholdFactor_levels,final_mortality,cex=200/n_runs,xlab="Change in threshold for policy response",log="x")
 
+}
