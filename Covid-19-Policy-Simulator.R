@@ -44,9 +44,8 @@ T_double <- log(2)/r0; T_double # consistency check
 ## Policy and behaviour parameters:
 policy_intervention_rate <- 1/6 # see timing of interventions here: https://lab.gedidigital.it/gedi-visual/2020/coronavirus-i-contagi-in-italia/
 
-## For plotting results on date scale:
-date_matching_cumulative_fatality <- 55
-date_matching_cumulative_date <- as.Date("2020-03-16")
+
+
 
 # Stages: set up population categories for the different classes of infected and uninfected people 
 stages <- c(
@@ -246,7 +245,6 @@ if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too mu
 other_runs_alpha <- 10/n_runs # Intensity of plotting all but last simulation
 final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simulation
 final_immunization <- rep(NA,n_runs) # Record total immunication rate at end of each simulation
-
 # Prepare plot of results:
 dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
 plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Days",ylab="Proportion")
