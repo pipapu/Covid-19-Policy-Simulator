@@ -1,27 +1,29 @@
 ## Simulation of management of Covid-19 outbreak in the UK.
-library(nleqslv) # nonlinear solver
+library(nleqslv) # for nonlinear solver 'nleqslv'
 
-# Parameters (unit: days)
+#### Parameters (time unit: days)
+## Epidemiological parameters:
 incubation_time <- 5.1 # Ferguson et al. 
 incubation_time <- incubation_time +1 # fudge to reproduce R0 and generation time 
 start_trans_symp <- incubation_time - 0.5 # Ferguson et al. 
 start_trans_asymp <- start_trans_symp # Ferguson et al. 
-prop_symptoms <- 0.2 # https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
 #prop_symptoms <- 1/3 # Ferguson et al. 
-prop_critical <- 0.06 # To be implemented # https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
+prop_symptoms <- 0.2 # https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
 mean_generation_time <- 6.5 # Ferguson et al. 
 #generation_time_alpha <- 3 # shape parameter of an assumed gamma distribution, https://academic.oup.com/biostatistics/article/12/2/303/280518
-generation_time_alpha <- 2 # 1 # shape parameter of an assumed gamma distribution, fudge to reproduce r
+generation_time_alpha <- 2 # shape parameter of an assumed gamma distribution, fudge to reproduce r 
 R0 <- 2.4 # Ferguson et al. 
-inf_symp_asymp_ratio <- 2  # Ferguson et al.  
+inf_symp_asymp_ratio <- 2  # ratio of symptomatic to asymptomatic, Ferguson et al.  
 UK_population_size <- 66.44e6
 pop_size <- UK_population_size
 
-case_fatality_rate_1 <- 0.009 # hospitals below capacity # to be implemented...
-case_fatality_rate_2 <- 0.09 # hospitals over capacity # to be implemented...
-hospitalization_rate <- 0.044 # to be implemented...
-critical_care_rate <- 0.044 * 0.3 # to be implemented...
+## Parameters controlling mortality:
+case_fatality_rate_1 <- 0.009 # hospitals below capacity
+case_fatality_rate_2 <- 0.09 # hospitals over capacity
+hospitalization_rate <- 0.044 # proportion of infected hospitlized
+critical_care_rate <- 0.044 * 0.3 # proportion of infected needing critical care
 critical_care_hospital_time <- 10
+# number of infected over number of critical care cases at any moment:
 hospital_load_factor <- 
   critical_care_rate * critical_care_hospital_time / 
   mean_generation_time
@@ -29,19 +31,20 @@ critical_care_beds <- 8175 # uk number of respirators
 ## Threshold for proportion infected:
 critical_care_beds / (hospital_load_factor * pop_size) 
 
-# ## Check:
-# r <- (R0^(1/generation_time_alpha)-1) * generation_time_alpha/mean_generation_time;
-# # linear growth rate
-# r
-# # doubling time
-# #exp(r*T_double)==2 -> T_double == log(2)/r
-# log(2)/r
+## Initial linear growth rate of epidemy:
+# Formula assuming gamma distribution for generation time
+r0 <- (R0^(1/generation_time_alpha)-1) * generation_time_alpha/mean_generation_time;
+r0
+# doubling time
+#exp(r*T_double)==2 -> T_double == log(2)/r
+T_double <- log(2)/r0; T_double # consistency check
 
+
+## Policy and behaviour parameters:
 policy_intervention_rate <- 1/6 # https://lab.gedidigital.it/gedi-visual/2020/coronavirus-i-contagi-in-italia/
 
 
-
-
+## The stage-structured model:
 # Stages:
 stages <- c(
   "S", # susceptible
@@ -60,10 +63,10 @@ PStages <- c("Is2", "Ia2")
 
 
 ## Linear dynamics:
-# We still need to adjust two parameters: 
-# Is2_inf: infectiousness of Is2 srage (scales other stages)
+# Later we still need to adjust two parameters, which will be left open for now:
+# Is2_inf: infectiousness of Is2 stage (which then scales other stages)
 # rec_rate: recovery rate of transmitting individuals
-# This adjustment is done such as fitting R0 and mean_generation_time
+# This adjustment is done using the full linear model such as to fit given values for R0 and mean_generation_time.
 
 ## The "survivial" part of the population matrix
 SS_calc <- function(Is2_inf,rec_rate){
@@ -99,7 +102,8 @@ FF_calc <- function(Is2_inf,rec_rate){
   return(FF0 * pop_size)
 }
 
-eigenvalue_index <- function(eig_values){
+## Decide which is the index of the eigenvalue determining linear growth rate:
+eigenvalue_index <- function(eig_values){ # input is a list of eigenvalues
   w <- which(abs(eig_values)==eig_values & eig_values != 1)
   return(w[which.max(eig_values[w])])
 }
@@ -125,6 +129,7 @@ get_mean_generation_time <- function(SS,FF){
   return(T_gen)
 }
 
+## Computes both R0 and mean generation time for given SS and FF:
 R0_and_Tgen <- function(SS,FF){
   L <- SS + FF
   Tgen <- get_mean_generation_time(SS,FF)
@@ -138,13 +143,14 @@ R0_and_Tgen <- function(SS,FF){
   return(c(R0,Tgen))
 }
 
+## Computes deviation of R0 and mean generation time from target values, for give for given Is2_inf, rec_rate, passed as vector in argument x:
 R0_and_Tgen_diff <- function(x){
   as.numeric(
     with(as.list(x),
          R0_and_Tgen(SS_calc(Is2_inf,rec_rate),FF_calc(Is2_inf,rec_rate)) - 
            c(R0,mean_generation_time) ))
 }
-initialGuess <- c(Is2_inf=5.234017e-07/20,rec_rate=0.01 )
+initialGuess <- c(Is2_inf=0.1/pop_size,rec_rate=0.01 )
 # #Tests
 # with(as.list(initialGuess),
 #      SS_calc(Is2_inf,rec_rate)+FF_calc(Is2_inf,rec_rate))
@@ -162,19 +168,18 @@ fit$x
 with(as.list(fit$x),
      R0_and_Tgen(SS_calc(Is2_inf,rec_rate),FF_calc(Is2_inf,rec_rate)))
 
+## Compute population matrices:
 SS <- with(as.list(fit$x),SS_calc(Is2_inf,rec_rate))
 FF <- with(as.list(fit$x),FF_calc(Is2_inf,rec_rate))
 FF0 <- with(as.list(fit$x),FF0_calc(Is2_inf,rec_rate))
 L <- SS + FF
 
   
-IStages <- c("Is1", "Is2", "Ia1", "Ia2")
-#get_mean_generation_time(SS[IStages,IStages],FF[IStages,IStages])
 linear_growth_rate <- # linear growth rate r should be around 0.2
   log(eigen(L[IStages,IStages])$values[1]) 
-linear_growth_rate
+c(r0,linear_growth_rate) ## should be the same
 
-# Non-linear dynamics
+## Now, simulate non-linear dynamics
 n_steps <- 365 * 1.5
 state <- matrix(0, nrow=n_steps+1, ncol=n_stages)
 colnames(state) <- stages
@@ -197,34 +202,36 @@ compute_deaths <- function(state_snippet){
   return(deaths)
 }
 
-## Simulate without policy interventions
-plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
-for(i in 1:n_steps){
-  Lx <- SS + FF0 * state[i,"S"]
-  state[i+1,] <- Lx %*% state[i,]
-  state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
-  deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
+if(FALSE){ ## this passage is deactivated, used only for testing and model comparisons:
+  ## Simulate without policy interventions
+  plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
+  for(i in 1:n_steps){
+    Lx <- SS + FF0 * state[i,"S"]
+    state[i+1,] <- Lx %*% state[i,]
+    state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
+    deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
+  }
+  lines((state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
+  lines(rowSums(state[,IStages])/pop_size,col="red",type="l")
+  lines(cumsum(deaths)/pop_size*1e1,col="brown",type="l")
+  legend(x="bottomright",
+         legend = c("Recovered","Infected","cum. mortality x 10"),
+         col=c("black","red","brown"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
 }
-lines((state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
-lines(rowSums(state[,IStages])/pop_size,col="red",type="l")
-lines(cumsum(deaths)/pop_size*1e1,col="brown",type="l")
-legend(x="bottomright",
-       legend = c("Recovered","Infected","cum. mortality x 10"),
-       col=c("black","red","brown"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
 
 ## Simulate policy interventions with uncertainty
-dfac <- rep(NA,n_steps+1) # social distancing factor, the controll parameter
-dfac[1] <- 1 # social distancing factor, the controll parameter
-growth_rate <- linear_growth_rate
-n_runs <- 200
+dfac <- rep(NA,n_steps+1) # "social distancing factor", scales infection rate
+dfac[1] <- 1 # value 1 corresponds to no distancing, the initial assumption
+growth_rate <- linear_growth_rate # growth_rate is adjusted in simulations to inform policy
+n_runs <- 200 # how often to repeat simulation
 if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
-other_runs_transparency <- 10/n_runs
-# plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion immunized",xlab="Days")
-# plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Social Distancing Factor",xlab="Days")
-# plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),ylab="Proportion infected",xlab="Days")
+other_runs_alpha <- 10/n_runs # intensity of plotting all but last simulation
+final_mortality <- rep(NA,n_runs) # record total mortality at end of each simulation
+final_immunization <- rep(NA,n_runs) # record total immunication rate at end of each simulation
+
+# Prepare plot of results:
 plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
-final_mortality <- rep(NA,n_runs)
-final_immunization <- rep(NA,n_runs)
+# run n_runs simulations
 for(run in 1:n_runs){
   policy_intervention_times <- c()
   for(i in 1:n_steps){
@@ -247,7 +254,7 @@ for(run in 1:n_runs){
     growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
   }
   if(plotting || run == n_runs){
-    line_alpha <- ifelse(run > n_runs-1,1,other_runs_transparency)*255
+    line_alpha <- ifelse(run > n_runs-1,1,other_runs_alpha)*255
     plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
     lines((state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
@@ -266,6 +273,6 @@ for(t in policy_intervention_times){
 }
 legend(x="topright",
        legend = c("Recovered","Distancing","Infected x 100","cum. mort. x 10"),
-       col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.9))
+       col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.8))
 #plot(final_immunization,final_mortality,pch="+",cex=0.3)
 hist(final_mortality)
