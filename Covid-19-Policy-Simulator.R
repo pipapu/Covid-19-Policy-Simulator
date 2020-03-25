@@ -44,8 +44,9 @@ T_double <- log(2)/r0; T_double # consistency check
 ## Policy and behaviour parameters:
 policy_intervention_rate <- 1/6 # see timing of interventions here: https://lab.gedidigital.it/gedi-visual/2020/coronavirus-i-contagi-in-italia/
 
-
-
+## For plotting results:
+date_matching_cumulative_fatality <- 55
+date_matching_cumulative_date <- as.Date("2020-03-16")
 
 # Stages: set up population categories for the different classes of infected and uninfected people 
 stages <- c(
@@ -195,7 +196,7 @@ n_steps <- 365 * 1.5 #How long to simulate for
 state <- matrix(0, nrow=n_steps+1, ncol=n_stages) 
 colnames(state) <- stages
 S_index <- which(stages == "S") # index of S stage
-state[1,"Ia1"] <- 100 # Seed with some asymptotic cases
+state[1,"Ia1"] <- 10 # Seed with some asymptotic cases
 state[1,"S"] <- pop_size - sum(state[1,-S_index]) # Initial number of uninfected individuals
 deaths <- rep(NA,n_steps+1) # deaths per step
 deaths[1] <- 0
@@ -226,10 +227,16 @@ date_matching_i <- sum(cumsum(deaths) <= date_matching_cumulative_fatality)
 
 if(FALSE){ ## this passage is deactivated, used only for testing and model comparisons:
   ## Simulate without policy interventions
-  plot(c(0),type="n",ylim=c(0,1),xlim=c(0,n_steps),xlab="Days",ylab="Proportion")
-  lines((state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
-  lines(rowSums(state[,IStages])/pop_size,col="red",type="l")
-  lines(cumsum(deaths)/pop_size*1e1,col="brown",type="l")
+  dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
+  plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Time",ylab="Proportion",xaxt="n")
+  selectedDates <- dates[format(dates, "%d")=="01"]
+  axis(1, selectedDates, labels = F , cex.axis = .7)
+  text(selectedDates, par("usr")[3]-0.05, 
+       srt = 40, adj= 1, xpd = TRUE,
+       labels = format(selectedDates, "%d %b '%y"), cex=0.65)
+  lines(dates,(state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
+  lines(dates,rowSums(state[,IStages])/pop_size,col="red",type="l")
+  lines(dates,cumsum(deaths)/pop_size*1e1,col="brown",type="l")
   legend(x="bottomright",
          legend = c("Recovered","Infected","cum. mortality x 10"),
          col=c("black","red","brown"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
@@ -247,7 +254,13 @@ final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simula
 final_immunization <- rep(NA,n_runs) # Record total immunication rate at end of each simulation
 # Prepare plot of results:
 dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
-plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Days",ylab="Proportion")
+plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Time",ylab="Proportion",xaxt="n")
+selectedDates <- dates[format(dates, "%d")=="01"]
+axis(1, selectedDates, labels = F , cex.axis = .7)
+text(selectedDates, par("usr")[3]-0.05, 
+     srt = 40, adj= 1, xpd = TRUE,
+     labels = format(selectedDates, "%d %b '%y"), cex=0.65)
+
 
 # run n_runs simulations
 for(run in 1:n_runs){
@@ -259,7 +272,7 @@ for(run in 1:n_runs){
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
         policy_intervention_times <-
           append(policy_intervention_times,i)
-      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0){ # less measures
+      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0.1){ # less measures
         dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
         policy_intervention_times <-
           append(policy_intervention_times,i)
@@ -294,4 +307,6 @@ legend(x="topright",
        col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.8))
 #plot(final_immunization,final_mortality,pch="+",cex=0.3)
 hist(final_mortality)
+
+plot(dates-min(dates),cumsum(deaths),col=plotcol,type="l",xlim=c(0,50),ylim=c(0,200))
 
