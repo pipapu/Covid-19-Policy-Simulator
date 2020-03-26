@@ -307,9 +307,14 @@ legend(x="topright",
        col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.8))
 #plot(final_immunization,final_mortality,pch="+",cex=0.3)
 
+# Optional analyses -------------------------------------------------------------------
+
 if(F){
-  # some other, optional analyses
+
+# Frequency histogram of mortality levels from all model runs -------------------------
 hist(final_mortality)
+
+# Plot the effect of changing degrees of compliance decay om total mortality ----------  
 compliance_decline_levels <- seq(-1/30*2,1/30*2,length.out = n_runs)
 for(run in 1:n_runs){
   compliance_decline <- compliance_decline_levels[run]
@@ -336,7 +341,9 @@ for(run in 1:n_runs){
   final_immunization[run] <- 
     (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
 }
-plot(compliance_decline_levels*30,final_mortality,cex=200/n_runs,xlab="Decline of compliance (Month)^-1")
+plot(compliance_decline_levels*30,final_mortality,cex=200/n_runs,ylab = "Final mortality", xlab=expression("Decline of compliance Month"^"-1"))
+
+# plot the effect of increasing the threshold for intervention on mortality -----------
 
 thresholdFactor_levels <- 10^(seq(-3,3,length.out = n_runs))
 for(run in 1:n_runs){
@@ -364,6 +371,6 @@ for(run in 1:n_runs){
   final_immunization[run] <- 
     (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
 }
-plot(thresholdFactor_levels,final_mortality,cex=200/n_runs,xlab="Change in threshold for policy response",log="x")
+plot(thresholdFactor_levels,final_mortality,cex=200/n_runs,ylab = "Final mortality", xlab="Change in threshold for policy response",log="x")
 
 }
