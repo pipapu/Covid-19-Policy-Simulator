@@ -1,4 +1,4 @@
-## Simulation of management of Covid-19 outbreak in the UK.
+#### Simulation of management of Covid-19 outbreak in the UK. ####
 library(nleqslv) # for nonlinear solver 'nleqslv'
 
 # Parameters (unit: days) ------------------------------------------------------
@@ -14,18 +14,19 @@ prop_critical <- 0.06 # Proportion of cases becoming critical # https://www.thel
 mean_generation_time <- 6.5 # Ferguson et al. 
 #generation_time_alpha <- 3 # shape parameter of an assumed gamma distribution, https://academic.oup.com/biostatistics/article/12/2/303/280518
 generation_time_alpha <- 2 # shape parameter of an assumed gamma distribution, fudge to reproduce r
-R0 <- 2.4 # Basic reproductive number for the infection Ferguson et al. 
+R0 <- 2.4 # Basic reproductive number for the infection, Ferguson et al. 
 inf_symp_asymp_ratio <- 2  # ratio of symptomatic to asymptomatic, Ferguson et al.  
 UK_population_size <- 66.44e6
 pop_size <- UK_population_size
 
 ## Parameters controlling mortality:
-case_fatality_rate_1 <- 0.009 # case fatality rate when hospitals below capacity
-case_fatality_rate_2 <- 0.09 # case fatality rate when hospitals over capacity
-hospitalization_rate <- 0.044 # proportion of cases needing hospitalisation
-critical_care_rate <- 0.044 * 0.3 # proprtion of cases needing critical care
-critical_care_hospital_time <- 10
-# number of infected over number of critical care cases at any moment:
+# We assume that case fataliy is much higher for cases beyond hospital capacity:
+case_fatality_rate_1 <- 0.009 # case fatality rate when hospitals below capacity https://www.cebm.net/covid-19/global-covid-19-case-fatality-rates/ (as of 27 Mar 2020)
+case_fatality_rate_2 <- 0.09 # case fatality rate when hospitals over capacity  https://www.cebm.net/covid-19/global-covid-19-case-fatality-rates/ (as of 27 Mar 2020)
+hospitalization_rate <- 0.044 # proportion of "cases" needing hospitalisation Ferguson et al. 
+critical_care_rate <- 0.044 * 0.3 # proprtion of "cases" needing critical care Ferguson et al. 
+critical_care_hospital_time <- 10 # Ferguson et al. 
+# number of critical care cases over number of "cases" at any moment:
 hospital_load_factor <- 
   critical_care_rate * critical_care_hospital_time / 
   mean_generation_time # Amount of load on the hospital system
@@ -43,6 +44,11 @@ T_double <- log(2)/r0; T_double # consistency check
 
 ## Policy and behaviour parameters:
 policy_intervention_rate <- 1/6 # see timing of interventions here: https://lab.gedidigital.it/gedi-visual/2020/coronavirus-i-contagi-in-italia/
+policy_intervention_threshold <- 0.001 # case p.p. above/below policy acts
+policy_relaxation_growth_rate_threshold <- -0.05 # don't relax if growth is larger
+
+compliance_sd <- 1/30 # Day to day standard deviation of compliance.
+compliance_decline <- 1/(6*30) # Day to day decline of compliance.
 
 ## For plotting results:
 date_matching_cumulative_fatality <- 55
@@ -73,7 +79,7 @@ PStages <- c("Is2", "Ia2")
 # rec_rate: recovery rate of transmitting individuals
 # This adjustment is done using the full linear model such as to fit given values for R0 and mean_generation_time.
 
-# Generate the "survival" part of the population matrix
+# Generate the "survival" part of the population projection matrix
 
 SS_calc <- function(Is2_inf,rec_rate){
   SS <- matrix(0,nrow = n_stages,ncol= n_stages,
@@ -102,7 +108,7 @@ FF0_calc <- function(Is2_inf,rec_rate){
   return(FF0)
 }
 
-# Calculate the "fertility" (= transmission) part of the population matrix
+# The "fertility" (= transmission) part of the population projection matrix
 FF_calc <- function(Is2_inf,rec_rate){
   FF0 <- FF0_calc(Is2_inf,rec_rate)
   return(FF0 * pop_size)
@@ -182,7 +188,7 @@ with(as.list(fit$x),
 SS <- with(as.list(fit$x),SS_calc(Is2_inf,rec_rate))
 FF <- with(as.list(fit$x),FF_calc(Is2_inf,rec_rate))
 FF0 <- with(as.list(fit$x),FF0_calc(Is2_inf,rec_rate))
-L <- SS + FF
+L <- SS + FF # the complete population projection matrix
 
 
 linear_growth_rate <- # linear growth rate r should be around 0.2
@@ -203,14 +209,19 @@ deaths[1] <- 0
 
 # Function to compute the number of deaths
 compute_deaths <- function(state_snippet){
-  total_infected <- sum(state_snippet[1,IStages])
-  respirator_demand <- hospital_load_factor * total_infected
+  # We assume that symptomatic transmitting patients are "case"
+  total_cases <- sum(state_snippet[1,"Is2"])
+  respirator_demand <- hospital_load_factor * total_cases
   with_respirator <- min(critical_care_beds, respirator_demand)
   without_respirator <- respirator_demand - with_respirator
-  fatality_rate <-
-    (with_respirator * case_fatality_rate_1 + without_respirator * case_fatality_rate_2)/
-    respirator_demand
-  rec <- state_snippet[2,"R"] - state_snippet[1,"R"]
+  if(total_cases > 0 ){
+    fatality_rate <-
+      (with_respirator * case_fatality_rate_1 + without_respirator * case_fatality_rate_2)/
+      respirator_demand
+  }else{
+    fatality_rate <- 0
+  }
+  rec <- state_snippet[2,"R"]-state_snippet[1,"R"] # "recoveries" including deaths
   deaths <- rec * fatality_rate
   return(deaths)
 }
@@ -218,7 +229,7 @@ compute_deaths <- function(state_snippet){
 # Simulate without policy interventions ----------------------------------------
 
 for(i in 1:n_steps){
-  Lx <- SS + FF0 * state[i,"S"]
+  Lx <- SS + FF0 * state[i,"S"] # nonlinear population projection matrix
   state[i+1,] <- Lx %*% state[i,]
   state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
   deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
@@ -234,28 +245,31 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
   text(selectedDates, par("usr")[3]-0.05, 
        srt = 40, adj= 1, xpd = TRUE,
        labels = format(selectedDates, "%d %b '%y"), cex=0.65)
-  lines(dates,(state[,"R"]-cumsum(deaths))/pop_size,col="black",type="l")
+  lines(dates,(state[,"R"]-cumsum(deaths))/pop_size,col="green",type="l")
   lines(dates,rowSums(state[,IStages])/pop_size,col="red",type="l")
-  lines(dates,cumsum(deaths)/pop_size*1e1,col="brown",type="l")
+  lines(dates,cumsum(deaths)/pop_size*1e1,col="black",type="l")
   legend(x="bottomright",
          legend = c("Recovered","Infected","cum. mortality x 10"),
-         col=c("black","red","brown"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
+         col=c("green","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
 }
 
-# Simulate policy interventions with uncertainty -------------------------------
+
+# Simulate policy interventions with uncertain outcomes ---------------
 
 dfac <- rep(NA,n_steps+1) # social distancing factor, scales infection rate
 dfac[1] <- 1 # Value 1 corresponds to no distancing, the initial assumption
-growth_rate <- linear_growth_rate # growth_rate is adjusted in simulations to inform policy
+growth_rate <- linear_growth_rate # current growth_rate is used in simulations to inform policy
 n_runs <- 200 # How often to repeat simulation
 if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
 other_runs_alpha <- 10/n_runs # Intensity of plotting all but last simulation
 final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simulation
-final_immunization <- rep(NA,n_runs) # Record total immunication rate at end of each simulation
+final_immunization <- rep(NA,n_runs) # Record total immunization rate at end of each simulation
 # Prepare plot of results:
-dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
+date_shift <- date_matching_cumulative_date-date_matching_i
+dates <- seq(0,n_steps) + date_shift
 plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Time",ylab="Proportion",xaxt="n")
-selectedDates <- dates[format(dates, "%d")=="01"]
+# Draw x axis:
+selectedDates <- dates[format(dates, "%d")=="01"]  # where to draw ticks
 axis(1, selectedDates, labels = F , cex.axis = .7)
 text(selectedDates, par("usr")[3]-0.05, 
      srt = 40, adj= 1, xpd = TRUE,
@@ -264,16 +278,23 @@ text(selectedDates, par("usr")[3]-0.05,
 
 # run n_runs simulations
 for(run in 1:n_runs){
-  policy_intervention_times <- c()
+  policy_intervention_times <- c() # record dates when inverventions occured
   for(i in 1:n_steps){
-    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(30*6),1/30)))) # decline of compliance
+    # Simulate variation of compliance through time
+    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])-rnorm(1,compliance_decline,compliance_sd)))) 
+    # Simulate policy response and interventions affecting social distancing
     if(runif(1)< policy_intervention_rate){# adjust policy:
-      if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
+      if(state[i,"Is2"]/pop_size > policy_intervention_threshold && 
+         growth_rate > 0){
+        # more measures
         dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
         policy_intervention_times <-
           append(policy_intervention_times,i)
-      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0.1){ # less measures
-        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
+      }else if(dfac[i+1] < 1 && 
+               state[i,"Is2"]/pop_size < policy_intervention_threshold && 
+               growth_rate < policy_relaxation_growth_rate_threshold){ 
+        # less measures
+        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,1.5)) # outcome uncertain
         policy_intervention_times <-
           append(policy_intervention_times,i)
       }
@@ -285,85 +306,27 @@ for(run in 1:n_runs){
     growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
   }
   if(plotting || run == n_runs){
+    # Plot changes through time
     line_alpha <- ifelse(run > n_runs-1,1,other_runs_alpha)*255
     plotcol <- do.call(rgb,as.list(c(col2rgb("green"),alpha=line_alpha,max = 255)))
     lines(dates,(state[,"R"]-cumsum(deaths))/pop_size,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
     lines(dates,1-dfac,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
-    lines(dates,100*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
+    lines(dates,10*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
     lines(dates,cumsum(deaths)/pop_size * 1e1,col=plotcol,type="l")
   }
+  # Record main outcomes at end of simulation:
   final_mortality[run] <- sum(deaths)/pop_size
   final_immunization[run] <- 
     (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
 }
-for(t in policy_intervention_times){
+for(t in policy_intervention_times + date_shift){
   lines(c(t,t),c(0,1), col="black", lty=3)
 }
 legend(x="topright",
-       legend = c("Recovered","Distancing","Infected x 100","cum. mort. x 10"),
-       col=c("green","blue","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.8))
-#plot(final_immunization,final_mortality,pch="+",cex=0.3)
+       legend = c("Recovered","Distancing","Infected x 10","cum. mort. x 10","policy change"),
+       col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
+#plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
 
-if(F){
-  # some other, optional analyses
-hist(final_mortality)
-compliance_decline_levels <- seq(-1/30*2,1/30*2,length.out = n_runs)
-for(run in 1:n_runs){
-  compliance_decline <- compliance_decline_levels[run]
-  for(i in 1:n_steps){
-    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-compliance_decline,1/30)))) # decline of compliance
-    if(runif(1)< policy_intervention_rate){# adjust policy:
-      if(state[i,"Is2"]/pop_size > 0.0005 && growth_rate > 0){ # more measures
-        dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
-        policy_intervention_times <-
-          append(policy_intervention_times,i)
-      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001 && growth_rate <  0.1){ # less measures
-        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
-        policy_intervention_times <-
-          append(policy_intervention_times,i)
-      }
-    }
-    Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
-    state[i+1,] <- Lx %*% state[i,]
-    state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
-    deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
-    growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
-  }
-  final_mortality[run] <- sum(deaths)/pop_size
-  final_immunization[run] <- 
-    (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
-}
-plot(compliance_decline_levels*30,final_mortality,cex=200/n_runs,xlab="Decline of compliance (Month)^-1")
-
-thresholdFactor_levels <- 10^(seq(-3,3,length.out = n_runs))
-for(run in 1:n_runs){
-  thresholdFactor <- thresholdFactor_levels[run]
-  for(i in 1:n_steps){
-    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])+rnorm(1,-1/(2*30),1/30)))) # decline of compliance
-    if(runif(1)< policy_intervention_rate){# adjust policy:
-      if(state[i,"Is2"]/pop_size > 0.0005*thresholdFactor && growth_rate > 0){ # more measures
-        dfac[i+1] <- dfac[i+1] * runif(1,0.2,1) # outcome is uncertain
-        policy_intervention_times <-
-          append(policy_intervention_times,i)
-      }else if(dfac[i+1] < 1 && state[i,"Is2"]/pop_size < 0.0001*thresholdFactor && growth_rate <  0.1){ # less measures
-        dfac[i+1] <- min(1,dfac[i+1]*runif(1,1,2)) # outcome uncertain
-        policy_intervention_times <-
-          append(policy_intervention_times,i)
-      }
-    }
-    Lx <- SS + FF0 * state[i,"S"] * dfac[i+1]
-    state[i+1,] <- Lx %*% state[i,]
-    state[i+1,"S"] <- pop_size - sum(state[i+1,-S_index])
-    deaths[i+1] <- compute_deaths(state[c(0,1)+i,])
-    growth_rate <- log(sum(state[i+1,PStages])/sum(state[i,PStages]))
-  }
-  final_mortality[run] <- sum(deaths)/pop_size
-  final_immunization[run] <- 
-    (state[n_steps,"R"]-sum(deaths))/(pop_size-sum(deaths))
-}
-plot(thresholdFactor_levels,final_mortality,cex=200/n_runs,xlab="Change in threshold for policy response",log="x")
-
-}
