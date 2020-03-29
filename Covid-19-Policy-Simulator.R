@@ -42,7 +42,7 @@ r0
 T_double <- log(2)/r0; T_double # consistency check
 
 ## Policy and behaviour parameters:
-policy_intervention_rate <- 1/3 # 
+policy_intervention_rate <- 1/3# 
 policy_intervention_threshold <- 20*10/1e6 # case p.p. above/below which policy acts
 policy_relaxation_growth_rate_threshold <- -0.05 # don't relax if growth is larger
 
@@ -281,7 +281,7 @@ for(run in 1:n_runs){
   policy_intervention_times <- c() # record dates when inverventions occured
   for(i in 1:n_steps){
     # Simulate variation of compliance through time
-    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])-rnorm(1,compliance_decline,compliance_sd)))) 
+    dfac[i+1] <- 1-exp(min(0,(log(1-dfac[i])-(1-dfac[i])*rnorm(1,compliance_decline,compliance_sd)))) 
     # Simulate policy response and interventions affecting social distancing
     if(runif(1)< policy_intervention_rate){# adjust policy:
       if(state[i,"Is2"]/pop_size > policy_intervention_threshold && 
@@ -314,7 +314,7 @@ for(run in 1:n_runs){
     plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
     lines(dates,10*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
-    lines(dates,cumsum(deaths)/pop_size * 1e1,col=plotcol,type="l")
+    lines(dates,10*cumsum(deaths)/pop_size,col=plotcol,type="l")
   }
   # Record main outcomes at end of simulation:
   final_mortality[run] <- sum(deaths)/pop_size
@@ -328,5 +328,5 @@ legend(x="topright",
        legend = c("Recovered","Distancing","Infected x 10","cum. mort. x 10","policy change"),
        col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
 plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
-hist(final_mortality)
-mean(final_mortality)
+hist(final_mortality*pop_size)
+median(final_mortality)*pop_size
