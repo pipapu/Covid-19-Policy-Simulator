@@ -1,6 +1,6 @@
 #### Simulation of management of Covid-19 outbreak in the UK. ####
 library(nleqslv) # for nonlinear solver 'nleqslv'
-set.seed(9) #  3
+#set.seed(9) #  3
 # Parameters (unit: days) ------------------------------------------------------
 
 ## Parameters controlling disease dynamics:
@@ -22,14 +22,12 @@ pop_size <- UK_population_size
 # We assume that case fataliy is much higher for cases beyond hospital capacity:
 case_fatality_rate_1 <- 0.009 # case fatality rate when hospitals below capacity https://www.cebm.net/covid-19/global-covid-19-case-fatality-rates/ (as of 27 Mar 2020)
 case_fatality_rate_2 <- 0.09 # case fatality rate when hospitals over capacity  https://www.cebm.net/covid-19/global-covid-19-case-fatality-rates/ (as of 27 Mar 2020)
-hospitalization_rate <- 0.044 # proportion of "cases" needing hospitalisation Ferguson et al. 
-critical_care_rate <- hospitalization_rate * 0.3 # proprtion of "cases" needing critical care Ferguson et al. 
+hospitalization_rate <- 0.044 # proportion of cases needing hospitalisation Ferguson et al. 
+critical_care_rate <- hospitalization_rate * 0.3 # proprtion of cases needing critical care Ferguson et al. 
 critical_care_hospital_time <- 10 # Ferguson et al. 
-# number of critical care cases over number of "cases" at any moment:
-hospital_load_factor <- 
-  critical_care_rate # Amount of load on the hospital system
+# number of critical care cases over number of cases at any moment:
 critical_care_beds <- 8175 # uk number of respirators available
-## Threshold for proportion of "cases" p.p.:
+## Threshold for proportion of cases p.p.:
 critical_care_beds / (hospital_load_factor * pop_size) 
 
 ## Initial linear growth rate of epidemy:
@@ -186,6 +184,14 @@ with(as.list(fit$x),
 with(as.list(fit$x),
      R0_and_Tgen(SS_calc(Is2_inf,rec_rate)[IStages,IStages],FF_calc(Is2_inf,rec_rate)[IStages,IStages]))
 
+## infection rate:
+with(as.list(fit$x), pop_size * Is2_inf )
+
+hospital_load_factor <- critical_care_rate * critical_care_hospital_time / 
+  with(as.list(fit$x),incubation_time + 1/rec_rate)
+
+
+
 ## Compute population matrices:
 SS <- with(as.list(fit$x),SS_calc(Is2_inf,rec_rate))
 FF <- with(as.list(fit$x),FF_calc(Is2_inf,rec_rate))
@@ -212,7 +218,7 @@ deaths[1] <- 0
 # Function to compute the number of deaths
 compute_deaths <- function(state_snippet){
   # We assume that symptomatic transmitting patients are "case"
-  total_cases <- sum(state_snippet[1,"Is2"])
+  total_cases <- sum(state_snippet[1,IStages])
   respirator_demand <- hospital_load_factor * total_cases
   with_respirator <- min(critical_care_beds, respirator_demand)
   without_respirator <- respirator_demand - with_respirator
@@ -260,7 +266,7 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
 dfac <- rep(NA,n_steps+1) # social distancing factor, scales infection rate
 dfac[1] <- 1 # Value 1 corresponds to no distancing, the initial assumption
 growth_rate <- linear_growth_rate # current growth_rate is used in simulations to inform policy
-n_runs <- 1#200 # How often to repeat simulation
+n_runs <- 200 # How often to repeat simulation
 if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
 other_runs_alpha <- 10/n_runs # Intensity of plotting all but last simulation
 final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simulation
