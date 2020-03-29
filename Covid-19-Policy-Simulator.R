@@ -1,11 +1,10 @@
 #### Simulation of management of Covid-19 outbreak in the UK. ####
 library(nleqslv) # for nonlinear solver 'nleqslv'
-
+set.seed(9) #  3
 # Parameters (unit: days) ------------------------------------------------------
 
 ## Parameters controlling disease dynamics:
 incubation_time <- 5.1 # Period from infection to symptoms from Ferguson et al. 
-incubation_time <- incubation_time +1 # fudge to reproduce R0 and generation time 
 start_trans_symp <- incubation_time - 0.5 # Period from infection to the start of infectiousness for symptomatic cases Ferguson et al. 
 start_trans_asymp <- start_trans_symp # Period from infection to the start of infectiousness for asymptomatic casesFerguson et al. 
 prop_symptoms <- 0.2 # Proportion of infected people developing symptoms https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(20)30567-5/fulltext
@@ -184,6 +183,8 @@ fit$x
 ## double check
 with(as.list(fit$x),
      R0_and_Tgen(SS_calc(Is2_inf,rec_rate),FF_calc(Is2_inf,rec_rate)))
+with(as.list(fit$x),
+     R0_and_Tgen(SS_calc(Is2_inf,rec_rate)[IStages,IStages],FF_calc(Is2_inf,rec_rate)[IStages,IStages]))
 
 ## Compute population matrices:
 SS <- with(as.list(fit$x),SS_calc(Is2_inf,rec_rate))
@@ -248,9 +249,9 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
   lines(dates,(state[,"R"]-cumsum(deaths))/pop_size,col="green",type="l")
   lines(dates,rowSums(state[,IStages])/pop_size,col="red",type="l")
   lines(dates,cumsum(deaths)/pop_size*1e1,col="black",type="l")
-  legend(x="bottomright",
-         legend = c("Recovered","Infected","cum. mortality x 10"),
-         col=c("green","red","black"),lty=1,bg=rgb(1,1,1,alpha = 0.4))
+  legend(x="topright",
+         legend = c("Recovered","Infected","cum. mort. x 10"),
+         col=c("green","red","black"),lty=c(1,1,1),bg=rgb(1,1,1,alpha = 0.7))
 }
 
 
@@ -259,7 +260,7 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
 dfac <- rep(NA,n_steps+1) # social distancing factor, scales infection rate
 dfac[1] <- 1 # Value 1 corresponds to no distancing, the initial assumption
 growth_rate <- linear_growth_rate # current growth_rate is used in simulations to inform policy
-n_runs <- 200 # How often to repeat simulation
+n_runs <- 1#200 # How often to repeat simulation
 if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
 other_runs_alpha <- 10/n_runs # Intensity of plotting all but last simulation
 final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simulation
@@ -327,6 +328,7 @@ for(t in policy_intervention_times + date_shift){
 legend(x="topright",
        legend = c("Recovered","Distancing","Infected x 10","cum. mort. x 10","policy change"),
        col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
-plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
-hist(final_mortality*pop_size)
-median(final_mortality)*pop_size
+# plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
+# hist(final_mortality*pop_size)
+median(final_mortality)
+
