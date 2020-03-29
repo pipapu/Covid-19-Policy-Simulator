@@ -1,6 +1,5 @@
 #### Simulation of management of Covid-19 outbreak in the UK. ####
 library(nleqslv) # for nonlinear solver 'nleqslv'
-#set.seed(9) #  3
 # Parameters (unit: days) ------------------------------------------------------
 
 ## Parameters controlling disease dynamics:
@@ -39,7 +38,7 @@ r0
 T_double <- log(2)/r0; T_double # consistency check
 
 ## Policy and behaviour parameters:
-policy_intervention_rate <- 1/3# 
+policy_intervention_rate <- 1/3 # 
 policy_intervention_threshold <- 20*10/1e6 # case p.p. above/below which policy acts
 policy_relaxation_growth_rate_threshold <- -0.05 # don't relax if growth is larger
 
@@ -256,7 +255,7 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
   lines(dates,rowSums(state[,IStages])/pop_size,col="red",type="l")
   lines(dates,cumsum(deaths)/pop_size*1e1,col="black",type="l")
   legend(x="topright",
-         legend = c("Recovered","Infected","cum. mort. x 10"),
+         legend = c("Immunization","Infected","cum. mort. x 10"),
          col=c("green","red","black"),lty=c(1,1,1),bg=rgb(1,1,1,alpha = 0.7))
 }
 
@@ -266,7 +265,7 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
 dfac <- rep(NA,n_steps+1) # social distancing factor, scales infection rate
 dfac[1] <- 1 # Value 1 corresponds to no distancing, the initial assumption
 growth_rate <- linear_growth_rate # current growth_rate is used in simulations to inform policy
-n_runs <- 200 # How often to repeat simulation
+n_runs <- 1#2000#200 # How often to repeat simulation
 if(!exists("plotting")) plotting <- TRUE # set to FALSE if plotting takes too much time
 other_runs_alpha <- 10/n_runs # Intensity of plotting all but last simulation
 final_mortality <- rep(NA,n_runs) # Record total mortality at end of each simulation
@@ -274,14 +273,16 @@ final_immunization <- rep(NA,n_runs) # Record total immunization rate at end of 
 # Prepare plot of results:
 date_shift <- date_matching_cumulative_date-date_matching_i
 dates <- seq(0,n_steps) + date_shift
-plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Time",ylab="Proportion",xaxt="n")
+xlab <- ifelse(exists("simplify"),"","Time")
+plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab=xlab,ylab="Proportion",xaxt="n")
 # Draw x axis:
 selectedDates <- dates[format(dates, "%d")=="01"]  # where to draw ticks
 axis(1, selectedDates, labels = F , cex.axis = .7)
-text(selectedDates, par("usr")[3]-0.05, 
-     srt = 40, adj= 1, xpd = TRUE,
-     labels = format(selectedDates, "%d %b '%y"), cex=0.65)
-
+if(!exists("simplify")){
+  text(selectedDates, par("usr")[3]-0.05, 
+       srt = 40, adj= 1, xpd = TRUE,
+       labels = format(selectedDates, "%d %b '%y"), cex=0.65)
+}
 
 # run n_runs simulations
 for(run in 1:n_runs){
@@ -319,9 +320,9 @@ for(run in 1:n_runs){
     plotcol <- do.call(rgb,as.list(c(col2rgb("blue"),alpha=line_alpha,max = 255)))
     lines(dates,1-dfac,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("red"),alpha=line_alpha,max = 255)))
-    lines(dates,10*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
+    lines(dates,100*rowSums(state[,IStages])/pop_size,col=plotcol,type="l")
     plotcol <- do.call(rgb,as.list(c(col2rgb("black"),alpha=line_alpha,max = 255)))
-    lines(dates,10*cumsum(deaths)/pop_size,col=plotcol,type="l")
+    lines(dates,100*cumsum(deaths)/pop_size,col=plotcol,type="l")
   }
   # Record main outcomes at end of simulation:
   final_mortality[run] <- sum(deaths)/pop_size
@@ -331,10 +332,13 @@ for(run in 1:n_runs){
 for(t in policy_intervention_times + date_shift){
   lines(c(t,t),c(0,1), col="black", lty=3)
 }
-legend(x="topright",
-       legend = c("Recovered","Distancing","Infected x 10","cum. mort. x 10","policy change"),
-       col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
+if(!exists("simplify")){
+  legend(x="topright",
+         legend = c("Immunization","Distancing","Infected x 100","cum. mort. x 100","policy change"),
+         col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
+}
 # plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
 # hist(final_mortality*pop_size)
-median(final_mortality)
+median(final_mortality)*pop_size
+quantile(final_mortality)*pop_size
 
