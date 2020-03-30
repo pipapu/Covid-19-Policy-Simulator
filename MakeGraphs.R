@@ -2,7 +2,7 @@ dpi <- 300
 
 # Fig. 2
 pdf(file = "Fig2.pdf",width = 6,height = 4)
-png(file = "Fig2.png",width = 6*dpi,height = 4*dpi,res=dpi)
+#png(file = "Fig2.png",width = 6*dpi,height = 4*dpi,res=dpi)
 dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
 plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Date",ylab="Proportion",xaxt="n",xlim = as.Date(c("2020-03-16", "2020-07-1")))
 rangeDates <- dates[dates >= as.Date(c("2020-03-16")) & dates <= as.Date(c("2020-07-01"))]
@@ -20,7 +20,7 @@ legend(x="topleft",
 dev.off()
 
 # Fig. 3
-for(s in 1:10){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
+#for(s in 1:10){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
 
 pdf(file = "Fig3.pdf",width = 6.5,height = 6.5)
 #png(file = "Fig3.png",width = 6.5*dpi,height = 6.5*dpi, res = dpi)
@@ -44,10 +44,13 @@ final_mortality
 dev.off()
 
 # Fig. 4
-for(s in 1:30){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
+
+# Need to adjust teh policy_intervention_rate parameter for this in Covid-19-Policy-Simulator.R 
+
+#for(s in 1:30){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
 
 pdf(file = "Fig4.pdf",width = 6.5,height = 6.5)
-png(file = "Fig4.png",width = 6.5*dpi,height = 6.5*dpi, res = dpi)
+#png(file = "Fig4.png",width = 6.5*dpi,height = 6.5*dpi, res = dpi)
 selection <- rev(c(27,30,4,26))
 par(mar=c(4,4.1,0.2,2.1)) # default:  c(5.1, 4.1, 0, 2.1).
 #par(mfrow=c(4,1))
@@ -66,15 +69,4 @@ source("Covid-19-Policy-Simulator.R");
 final_mortality
 
 dev.off()
-
-plot(final_immunization,final_mortality,cex=min(1,200/n_runs), xlab = "Population ")
-vanilla.run <- data.frame(final_immunization,final_mortality)
-mean(final_immunization/final_mortality < 1.1*min(final_immunization/final_mortality))
-head(sort(final_mortality/final_immunization))
-mean(final_mortality/final_immunization > 0.03 )
-
-# Fig. 4
-for(s in 1:40){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
-dev.off()
-
 
