@@ -245,7 +245,7 @@ date_matching_i <- sum(cumsum(deaths) <= date_matching_cumulative_fatality)
 if(FALSE){ ## this passage is deactivated, used only for testing and model comparisons:
   ## Simulate without policy interventions
   dates <- date_matching_cumulative_date-date_matching_i+seq(0,n_steps)
-  plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Time",ylab="Proportion",xaxt="n")
+  plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab="Date",ylab="Proportion",xaxt="n")
   selectedDates <- dates[format(dates, "%d")=="01"]
   axis(1, selectedDates, labels = F , cex.axis = .7)
   text(selectedDates, par("usr")[3]-0.05, 
@@ -256,7 +256,7 @@ if(FALSE){ ## this passage is deactivated, used only for testing and model compa
   lines(dates,cumsum(deaths)/pop_size*1e1,col="black",type="l")
   legend(x="topright",
          legend = c("Immunization","Infected","cum. mort. x 10"),
-         col=c("green","red","black"),lty=c(1,1,1),bg=rgb(1,1,1,alpha = 0.7))
+         col=c("green","red","black"),lty=c(1,1,1),bg=rgb(1,1,1,alpha = 0.7,cex=0.9))
 }
 
 
@@ -273,15 +273,15 @@ final_immunization <- rep(NA,n_runs) # Record total immunization rate at end of 
 # Prepare plot of results:
 date_shift <- date_matching_cumulative_date-date_matching_i
 dates <- seq(0,n_steps) + date_shift
-xlab <- ifelse(exists("simplify"),"","Time")
+xlab <- ifelse(exists("simplify"),"","Date")
 plot(dates,rep(0,n_steps+1),type="n",ylim=c(0,1),xlab=xlab,ylab="Proportion",xaxt="n")
 # Draw x axis:
 selectedDates <- dates[format(dates, "%d")=="01"]  # where to draw ticks
 axis(1, selectedDates, labels = F , cex.axis = .7)
 if(!exists("simplify")){
-  text(selectedDates, par("usr")[3]-0.05, 
+  text(selectedDates, par("usr")[3]-0.07, 
        srt = 40, adj= 1, xpd = TRUE,
-       labels = format(selectedDates, "%d %b '%y"), cex=0.65)
+       labels = format(selectedDates, "%d %b '%y"), cex=0.75)
 }
 
 # run n_runs simulations
@@ -334,7 +334,7 @@ for(t in policy_intervention_times + date_shift){
 }
 if(!exists("simplify")){
   legend(x="topright",
-         legend = c("Immunization","Distancing","Infected x 100","cum. mort. x 100","policy change"),
+         legend = c("Recovered","Distancing","Infected x 100","Cum. mort. x 100","Policy change"),
          col=c("green","blue","red","black","black"),lty=c(1,1,1,1,3),bg=rgb(1,1,1,alpha = 0.7))
 }
 # plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
