@@ -339,6 +339,5 @@ if(!exists("simplify")){
 }
 # plot(final_immunization,final_mortality,cex=min(1,200/n_runs))
 # hist(final_mortality*pop_size)
-median(final_mortality)*pop_size
-quantile(final_mortality)*pop_size
+if(n_runs > 1) quantile(final_mortality)*pop_size
 
