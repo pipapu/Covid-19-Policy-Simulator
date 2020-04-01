@@ -20,6 +20,9 @@ legend(x="topleft",
 dev.off()
 
 # Fig. 3
+
+# !! Please make sure to set your R working directory to the source file directory.
+
 #for(s in 1:10){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
 
 pdf(file = "Fig3.pdf",width = 6.5,height = 6.5)
@@ -45,7 +48,7 @@ dev.off()
 
 # Fig. 4
 
-# Need to adjust teh policy_intervention_rate parameter for this in Covid-19-Policy-Simulator.R 
+# !! Need to adjust the policy_intervention_rate parameter for this in Covid-19-Policy-Simulator.R 
 
 #for(s in 1:30){set.seed(s);source("Covid-19-Policy-Simulator.R"); simplify <- T;title(s)};rm("simplify")
 
@@ -68,5 +71,4 @@ set.seed(selection[2]);
 source("Covid-19-Policy-Simulator.R"); 
 final_mortality
 
-dev.off()
 
